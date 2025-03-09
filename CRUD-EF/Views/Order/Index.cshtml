@@ -1,0 +1,128 @@
+﻿@model IEnumerable<CRUD_EF.Models.SO_ORDER>
+
+@{
+    ViewData["Title"] = "Sales Order";
+}
+
+<div class="container mt-4">
+    <h2 class="mb-4">SALES ORDER</h2>
+
+    <!-- Form Search & Filter -->
+    <form method="get" asp-controller="Order" asp-action="Index" class="mb-3">
+        <div class="row g-2 justify-content-center">
+            <div class="col-md-3">
+                <input type="text" name="searchKeyword" class="form-control"
+                       placeholder="Search by No, Sales Order, or Customer..."
+                       value="@Context.Request.Query["searchKeyword"]">
+            </div>
+            <div class="col-md-3">
+                <input type="date" name="orderDate" class="form-control" value="@Context.Request.Query["orderDate"]">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">Search</button>
+            </div>
+        </div>
+    </form>
+
+    <!-- Button Add New & Export to Excel -->
+    <div class="mb-3 d-flex gap-2">
+        <a asp-action="Create" class="btn btn-success">+ Add New Data</a>
+        <a asp-action="ExportToExcel" class="btn btn-info">
+            <i class="bi bi-file-earmark-excel"></i> Export to Excel
+        </a>
+    </div>
+
+    <!-- Table Sales Order -->
+    <div class="table-responsive">
+        <table class="table table-bordered table-striped">
+            <thead class="table-dark">
+                <tr>
+                    <th>No</th>
+                    <th>Action</th>
+                    <th>Sales Order</th>
+                    <th>Order Date</th>
+                    <th>Customer</th>
+                </tr>
+            </thead>
+            <tbody id="order-table-body">
+                @if (Model.Any())
+                {
+                    int no = 1;
+                    @foreach (var order in Model)
+                    {
+                        <tr id="order-@order.SoOrderId">
+                            <td class="order-no">@no</td>
+                            <td>
+                                <a asp-action="Edit" asp-route-id="@order.SoOrderId" class="btn btn-warning btn-sm">
+                                    <i class="bi bi-pencil-square"></i>
+                                </a>
+                                <button class="btn btn-danger btn-sm" onclick="deleteOrder(@order.SoOrderId)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                            <td>@order.SoOrderId</td>
+                            <td>@order.OrderDate.ToString("yyyy-MM-dd")</td>
+                            <td>@order.Customer?.CustomerName</td>
+                        </tr>
+                        no++;
+                    }
+                }
+                else
+                {
+                    <tr id="no-orders-row">
+                        <td colspan="5" class="text-center">No Sales Orders Found</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    async function deleteOrder(orderId) {
+        if (!confirm("Are you sure you want to delete this order?")) return;
+
+        try {
+            const response = await fetch(`/Delete/${orderId}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" }
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                alert(result.message);
+                removeOrderFromTable(orderId);
+            } else {
+                alert(result.message || "Failed to delete order.");
+            }
+        } catch (error) {
+            console.error("Error deleting order:", error);
+            alert("An unexpected error occurred.");
+        }
+    }
+
+    function removeOrderFromTable(orderId) {
+        const row = document.querySelector(`#order-${orderId}`);
+        if (row) {
+            row.remove();
+            updateRowNumbers();
+        }
+
+        if (document.querySelectorAll("#order-table-body tr").length === 0) {
+            document.querySelector("#order-table-body").innerHTML = `
+                <tr id="no-orders-row">
+                    <td colspan="5" class="text-center">No Sales Orders Found</td>
+                </tr>`;
+        }
+    }
+
+    function updateRowNumbers() {
+        document.querySelectorAll("#order-table-body tr").forEach((row, index) => {
+            const noCell = row.querySelector(".order-no");
+            if (noCell) {
+                noCell.textContent = index + 1;
+            }
+        });
+    }
+</script>

@@ -1,0 +1,247 @@
+﻿@model CRUD_EF.Models.SO_ORDER
+
+@{
+    ViewData["Title"] = "EDIT - SALES ORDER";
+}
+
+<h2 class="mb-4">EDIT - SALES ORDER</h2>
+
+<form asp-action="Edit" method="post">
+    <input type="hidden" asp-for="SoOrderId" />
+
+    <!-- Sales Order Information -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">Sales Order Information</div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label asp-for="OrderNo" class="form-label">Sales Order Number <span class="text-danger">*</span></label>
+                        <input asp-for="OrderNo" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="OrderDate" class="form-label">Order Date <span class="text-danger">*</span></label>
+                        <input asp-for="OrderDate" type="date" class="form-control" required>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label asp-for="ComCustomerId" class="form-label">Customer <span class="text-danger">*</span></label>
+                        <select asp-for="ComCustomerId" class="form-select" required>
+                            <option value="">Select Customer</option>
+                            @foreach (var customer in (List<COM_CUSTOMER>)ViewBag.Customers ?? new List<COM_CUSTOMER>())
+                            {
+                                <option value="@customer.ComCustomerId">@customer.CustomerName</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="Address" class="form-label">Address</label>
+                        <input asp-for="Address" class="form-control" required>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detail Item Information -->
+    <div class="card mb-4">
+        <div class="card-header bg-secondary text-white">Detail Item Information</div>
+        <div class="card-body">
+            <button type="button" class="btn btn-success mb-2" onclick="addItem()">Add Item</button>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>No</th>
+                        <th>Action</th>
+                        <th>Item Name</th>
+                        <th>Qty</th>
+                        <th>Price</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody id="itemTable">
+                    @if (Model.Items != null)
+                    {
+                        for (var i = 0;i < Model.Items.Count;i++)
+                        {
+                            <tr>
+                                <td>@(i + 1)</td>
+                                <td>
+                                    <button type="button" class="btn btn-danger btn-sm" onclick="removeItem(this)" title="Delete">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                                <td>
+                                    <input type="text" name="Items[@i].ItemName" class="form-control item-name" value="@Model.Items[i].ItemName" required>
+                                </td>
+                                <td>
+                                    <input type="number" name="Items[@i].Quantity" class="form-control qty" value="@Model.Items[i].Quantity" min="1" required>
+                                </td>
+                                <td>
+                                    <input type="number" name="Items[@i].Price" class="form-control price" value="@Model.Items[i].Price" min="0.01" step="0.01" required>
+                                </td>
+                                <td><input type="text" class="form-control total" readonly></td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+
+                <tfoot>
+                    <tr>
+                        <td colspan="3" class="text-end"><strong>Total Items:</strong></td>
+                        <td><input type="text" id="totalItems" class="form-control" readonly></td>
+                        <td class="text-end"><strong>Total Amount:</strong></td>
+                        <td><input type="text" id="grandTotal" class="form-control" readonly></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">
+        <i class="bi bi-check-lg"></i> Save
+    </button>
+    <a asp-action="Index" class="btn btn-secondary">
+        <i class="bi bi-x-lg"></i> Cancel
+    </a>
+
+</form>
+
+<script>
+    let itemCount = document.querySelectorAll("#itemTable tr").length;
+    let hasPendingItem = false;
+
+    function addItem() {
+        if (hasPendingItem) {
+            alert("Please save or cancel the current item before adding a new one.");
+            return;
+        }
+
+        const table = document.getElementById("itemTable");
+        const row = document.createElement("tr");
+
+        row.innerHTML = `
+            <td></td>
+<td>
+    <div class="d-flex align-items-center gap-2">
+        <button type="button" class="btn btn-success btn-sm btn-save" onclick="saveItem(this)" title="Save">
+            <i class="bi bi-check-circle"></i>
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm btn-cancel" onclick="cancelItem(this)" title="Cancel">
+            <i class="bi bi-x-circle"></i>
+        </button>
+    </div>
+</td>
+
+            <td><input type="text" class="form-control item-name" required></td>
+            <td><input type="number" class="form-control qty" min="1" required></td>
+            <td><input type="number" class="form-control price" min="0.01" step="0.01" required></td>
+            <td><input type="text" class="form-control total" readonly></td>
+        `;
+
+        table.appendChild(row);
+        hasPendingItem = true;
+        updateIndexes();
+        updateTotal();
+        updateSaveButton();
+    }
+
+    function saveItem(button) {
+        const row = button.closest("tr");
+
+        if (!validateRow(row)) {
+            alert("Please fill in all required fields.");
+            return;
+        }
+
+        row.querySelector(".btn-save").remove();
+        row.querySelector(".btn-cancel").remove();
+
+        const actionCell = row.cells[1];
+        actionCell.innerHTML = `
+    <button type="button" class="btn btn-danger btn-sm" onclick="removeItem(this)">
+        <i class="bi bi-trash"></i>
+    </button>`;
+
+        hasPendingItem = false;
+        updateIndexes();
+        updateTotal();
+        updateSaveButton();
+    }
+
+    function cancelItem(button) {
+        const row = button.closest("tr");
+        row.remove();
+        hasPendingItem = false;
+        updateTotal();
+        updateSaveButton();
+    }
+
+    function removeItem(button) {
+        const row = button.closest("tr");
+        row.remove();
+        updateIndexes();
+        updateTotal();
+        updateSaveButton();
+    }
+
+    function updateIndexes() {
+        const rows = document.querySelectorAll("#itemTable tr");
+        rows.forEach((row, index) => {
+            row.cells[0].textContent = index + 1;
+            row.querySelector(".item-name").name = `Items[${index}].ItemName`;
+            row.querySelector(".qty").name = `Items[${index}].Quantity`;
+            row.querySelector(".price").name = `Items[${index}].Price`;
+        });
+    }
+
+    function updateTotal() {
+        let totalItems = 0;
+        let grandTotal = 0;
+
+        document.querySelectorAll("#itemTable tr").forEach(row => {
+            const qty = parseFloat(row.querySelector(".qty")?.value) || 0;
+            const price = parseFloat(row.querySelector(".price")?.value) || 0;
+            const total = qty * price;
+
+            row.querySelector(".total").value = total.toLocaleString("id-ID", { style: "currency", currency: "IDR" });
+
+            totalItems += qty;
+            grandTotal += total;
+        });
+
+        document.getElementById("totalItems").value = totalItems;
+        document.getElementById("grandTotal").value = grandTotal.toLocaleString("id-ID", { style: "currency", currency: "IDR" });
+    }
+
+    function updateSaveButton() {
+        document.querySelector("button[type='submit']").disabled = hasPendingItem;
+    }
+
+    function validateRow(row) {
+        const itemName = row.querySelector(".item-name").value.trim();
+        const qty = row.querySelector(".qty").value.trim();
+        const price = row.querySelector(".price").value.trim();
+
+        return itemName !== "" && qty !== "" && price !== "";
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        updateTotal();
+        updateSaveButton();
+    });
+
+    document.addEventListener("input", function (event) {
+        if (event.target.classList.contains("qty") || event.target.classList.contains("price")) {
+            updateTotal();
+        }
+    });
+
+    document.addEventListener("keydown", function (event) {
+        if (event.key === "Enter" && event.target.tagName === "INPUT") {
+            event.preventDefault();
+        }
+    });
+</script>
+
